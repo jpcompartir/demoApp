@@ -1,4 +1,3 @@
----
 title: "html_text"
 format: 
   html:
@@ -16,16 +15,152 @@ TODO:
 
 As part of the Demo sales App, we'd love to have a tweet wall/embedded text centre to look more professional, where the tweets are [masonified](https://www.smashingmagazine.com/native-css-masonry-layout-css-grid/). Which could nowadays be done with `bslib::layout_column_wrap()`
 
-e.g. [Gaden Buie's Conference App](https://gadenbuie.shinyapps.io/tweet-conf-dash/) would compliment the landscape nicely.
+e.g. [Gaden Buie's Conference App](https://gadenbuie.shinyapps.io/tweet-conf-dash/) would compliment the landscape nicely. [Conference App Repo](https://github.com/gadenbuie/tweet-conf-dash) [shinyThings](https://github.com/gadenbuie/shinyThings/blob/main/R/pager.R) For the pager on the tweet wall (or we'll end up with hundreds (or could filter/sample the plotly_selected))
 
-These functions do the work:
+Question of whether this should be top posts (by likes, engagements?), top by cosine/x to some query?
 
-```{r, eval = FALSE}
+[Embedding via reddit](https://www.reddit.com/wiki/embeds/)
+
+<blockquote class="reddit-embed-bq" style="height:316px" data-embed-height="597">
+
+<a href="https://www.reddit.com/r/redditdev/comments/16tqlth/updating_api_user_setting_fields/">Updating API user setting fields</a><br> by<a href="https://www.reddit.com/user/pl00h/">u/pl00h</a> in<a href="https://www.reddit.com/r/redditdev/">redditdev</a>
+
+</blockquote>
+
+```{=html}
+<script async="" src="https://embed.reddit.com/widgets.js" charset="UTF-8"></script>
+```
+Need to paste in the user and the id
+
+# Utils
+
+```{r}
+style_embedding <- function(height=400) {
+    start_div <- paste0('<div style="height:', height,'px; overflow-y: scroll;">')
+    end_div <- '</div>'
+    
+    return(list(start_div = start_div, end_div = end_div))
+}
+```
+
+# Reddit
+
+```{r}
+shiny::HTML('<blockquote class="reddit-embed-bq" style="height:316px" data-embed-height="597"><a href="https://www.reddit.com/r/redditdev/comments/16tqlth/updating_api_user_setting_fields/">Updating API user setting fields</a><br> by<a href="https://www.reddit.com/user/pl00h/">u/pl00h</a> in<a href="https://www.reddit.com/r/redditdev/">redditdev</a></blockquote><script async="" src="https://embed.reddit.com/widgets.js" charset="UTF-8"></script>')
+
+r_pl <- "https://www.reddit.com/r/sales/comments/10x8sj9/even_gong_who_by_all_accounts_is_absolutely/j7rcv7m/"
+```
+
+```{r, extract_subreddit}
+extract_subreddit <- function(permalink) str_extract(permalink, "/r/(\\w+)", group = 1)
+
+r_sr <- extract_subreddit(r_pl)
+```
+
+```{r, reddit_embed_function}
+extract_reddit_html <- function(url, subreddit) {
+  
+  embedding_style <- style_embedding(height = 800)
+  html <- paste0(embedding_style$start_div, '<blockquote class="reddit-embed-bq" style="height:316px" data-embed-height="597"><a href="',
+                 url, '">Link to post</a><br></a> in<a href="https://www.reddit.com/r/', subreddit, '">',
+                 subreddit, '</a></blockquote><script async="" src="https://embed.reddit.com/widgets.js" charset="UTF-8"></script>',
+                 embedding_style$end_div)
+  
+  return(HTML(html))
+}
+
+r_e_html <- extract_reddit_html(r_pl, r_sr)
+```
+
+```{r}
+create_reddit_embed <- function(permalink){
+  if(!grepl("reddit", permalink)) stop("Not a reddit link")
+  
+  subreddit <- extract_subreddit(permalink)
+  
+  reddit_html <- extract_reddit_html(permalink, subreddit)
+  
+  return(reddit_html)
+}
+
+r_e <- create_reddit_embed(r_pl)
+bslib::layout_column_wrap(1/2, r_e, r_e, r_e, r_e, r_e, r_e)
+```
+
+# Instagram
+
+Private accounts are a bit of a problem with the instagram API - can't render the images, so will want to add a check later. Same may be true of Twitter.
+
+[Instagram Embed API Terms of Service](https://developers.facebook.com/terms)
+
+```{r, instagram_template}
+.tmp_insta <- HTML('<blockquote class="instagram-media" data-instgrm-permalink="https://www.instagram.com/p/C6z8MZetvvn/?utm_source=ig_web_copy_link/" data-instgrm-version="12" style=" background:#FFF; border:0; border-radius:3px; box-shadow:0 0 1px 0 rgba(0,0,0,0.5),0 1px 10px 0 rgba(0,0,0,0.1); margin: 1px; max-width:540px; min-width:326px; padding:0; width:99.375%; width:-webkit-calc(100% - 2px); width:calc(100% - 2px);">
+      <div style="padding:16px;">
+      </div>
+    </blockquote>
+    <script async defer src="//www.instagram.com/embed.js"></script>
+  ')
+
+create_instagram_embed <- function(permalink) {
+  
+  html <- paste0('<blockquote class="instagram-media" data-instgrm-permalink="',
+                 permalink, '" data-instgrm-version="12" style=" background:#FFF; border:0; border-radius:3px; box-shadow:0 0 1px 0 rgba(0,0,0,0.5),0 1px 10px 0 rgba(0,0,0,0.1); margin: 1px; max-width:540px; min-width:326px; padding:0; width:99.375%; width:-webkit-calc(100% - 2px); width:calc(100% - 2px);">
+      <div style="padding:16px;">
+      </div>
+    </blockquote>
+    <script async defer src="//www.instagram.com/embed.js"></script>')
+  return(HTML(html))
+
+}
+
+bslib::layout_column_wrap(1/3, .tmp_insta, .tmp_insta, .tmp_insta)
+```
+
+```{r}
+i_pl <- "https://www.instagram.com/p/CpsCY26IhDW/"
+# i_pl <- "https://www.instagram.com/p/CohLj4rycfo/" # Bad link - deleted/private
+```
+
+```{r}
+#Embed instagram function:
+get_instagram_blockquote <- function(permalink) {
+  html <- paste0('<blockquote class="instagram-media" data-instgrm-permalink="',
+                 permalink, '" data-instgrm-version="12" style=" background:#FFF; border:0; border-radius:3px; box-shadow:0 0 1px 0 rgba(0,0,0,0.5),0 1px 10px 0 rgba(0,0,0,0.1); margin: 1px; max-width:540px; min-width:326px; padding:0; width:99.375%; width:-webkit-calc(100% - 2px); width:calc(100% - 2px);">
+      <div style="padding:16px;">
+      </div>
+    </blockquote>
+    <script async defer src="//www.instagram.com/embed.js"></script>')
+  return(HTML(html))
+}
+
+i_bq <- get_instagram_blockquote(i_pl)
+
+bslib::layout_column_wrap(1/3, i_bq, i_bq, i_bq, i_bq, i_bq)
+
+# Check if the permalink links to a blocked account or a deleted post
+httr::GET(i_pl)
+```
+
+# Twitter
+
+```{r}
+library(stringr)
+extract_source <- function(permalink) str_extract(permalink, "(\\w+)\\.com", group = 1)
+extract_tweet_id <- function(permalink) str_extract(permalink, "status/(\\d+)", group = 1)
+extract_tweet_screen_name <- function(permalink) str_extract(permalink, "twitter.com/(\\w+)", group = 1)
+extract_tweet_status <- function(permalink) str_extract(permalink, "status/(\\d+)", group = 1)
+
+t_pl <- "https://twitter.com/dilekarasoy/status/1637074142615805952"
+```
+
+These functions do the work in the tweet conf app:
+
+```{r,tweet_blockquote eval = FALSE}
 get_tweet_blockquote <- function(screen_name, status_id, ..., null_on_error = TRUE, theme = "light") {
   oembed <- list(...)$oembed
   if (!is.null(oembed) && !is.na(oembed)) return(unlist(oembed))
   oembed_url <- glue::glue("https://publish.twitter.com/oembed?url=https://twitter.com/{screen_name}/status/{status_id}&omit_script=1&dnt=1&theme={theme}")
-  bq <- possibly(httr::GET, list(status_code = 999))(URLencode(oembed_url))
+  bq <- purrr::possibly(httr::GET, list(status_code = 999))(URLencode(oembed_url))
   if (bq$status_code >= 400) {
     if (null_on_error) return(NULL)
     '<blockquote style="font-size: 90%">Sorry, unable to get tweet ¯\\_(ツ)_/¯</blockquote>'
@@ -35,7 +170,7 @@ get_tweet_blockquote <- function(screen_name, status_id, ..., null_on_error = TR
 }
 ```
 
-```{r}
+```{r, masonify_tweets}
 masonify_tweets <- function(tweets, id = NULL, class = NULL) {
   stopifnot("status_id" %in% names(tweets))
 
@@ -54,103 +189,73 @@ masonify_tweets <- function(tweets, id = NULL, class = NULL) {
 }
 ```
 
-Question of whether this should be top posts (by likes, engagements?), top by cosine/x to some query?
-
-[Embedding via reddit](https://www.reddit.com/wiki/embeds/)
-
-<blockquote class="reddit-embed-bq" style="height:316px" data-embed-height="597">
-
-<a href="https://www.reddit.com/r/redditdev/comments/16tqlth/updating_api_user_setting_fields/">Updating API user setting fields</a><br> by<a href="https://www.reddit.com/user/pl00h/">u/pl00h</a> in<a href="https://www.reddit.com/r/redditdev/">redditdev</a>
-
-</blockquote>
-
-```{=html}
-<script async="" src="https://embed.reddit.com/widgets.js" charset="UTF-8"></script>
-```
-Need to paste in the user and the id
-
-# Reddit
-
 ```{r}
-shiny::HTML('<blockquote class="reddit-embed-bq" style="height:316px" data-embed-height="597"><a href="https://www.reddit.com/r/redditdev/comments/16tqlth/updating_api_user_setting_fields/">Updating API user setting fields</a><br> by<a href="https://www.reddit.com/user/pl00h/">u/pl00h</a> in<a href="https://www.reddit.com/r/redditdev/">redditdev</a></blockquote><script async="" src="https://embed.reddit.com/widgets.js" charset="UTF-8"></script>')
+(status <- extract_tweet_status(t_pl))
+(screen_name <- extract_tweet_screen_name(t_pl))
+
+t_bq <- get_tweet_blockquote(status = status, screen_name = screen_name) %>% HTML()
+
+t_bq
+bslib::layout_column_wrap(1/3, t_bq, t_bq, t_bq, t_bq, t_bq)
+
 ```
 
-This works:
+# All sources
 
-```{r}
-library(shiny)
-
-ui <- fluidPage(
-  shiny::HTML('<blockquote class="reddit-embed-bq" style="height:316px" data-embed-height="597"><a href="https://www.reddit.com/r/redditdev/comments/16tqlth/updating_api_user_setting_fields/">Updating API user setting fields</a><br> by<a href="https://www.reddit.com/user/pl00h/">u/pl00h</a> in<a href="https://www.reddit.com/r/redditdev/">redditdev</a></blockquote><script async="" src="https://embed.reddit.com/widgets.js" charset="UTF-8"></script>')
-)
-
-server <- function(input, output, session){
+```{mermaid}
+flowchart LR
+  p[Permalink] -->|Extract Source| s[Source]
+  s -->|Reddit| r[Reddit Embed]
+  s -->|Instagram| i[Instagram Embed]
+  s -->|Twitter| t[Twitter Embed]
   
-}
-
-shinyApp(ui, server)
 ```
-
-To map an arbitrary number to 3 per row:
 
 ```{r}
-library(shiny)
-library(bslib)
+extract_source(t_pl)
+extract_source(i_pl)
+extract_source(r_pl)
 
-.tmp <- shiny::HTML('<blockquote class="reddit-embed-bq" style="height:316px" data-embed-height="597"><a href="https://www.reddit.com/r/redditdev/comments/16tqlth/updating_api_user_setting_fields/">Updating API user setting fields</a><br> by<a href="https://www.reddit.com/user/pl00h/">u/pl00h</a> in<a href="https://www.reddit.com/r/redditdev/">redditdev</a></blockquote><script async="" src="https://embed.reddit.com/widgets.js" charset="UTF-8"></script>')
+i <- httr::GET(i_pl)
+t <- httr::GET(t_pl)
+r <- httr::GET(r_pl)
 
-?bslib::layout_column_wrap
-bslib::layout_column_wrap(1/3, .tmp, .tmp, .tmp, .tmp, .tmp, .tmp)
+create_reddit_embed(r)
+
 ```
+
+## Switch statement
+
+# Shiny
+
+Bones for doing it in a fluidPage, need to add tables/pagination...
 
 ```{r}
 library(shiny)
 library(bslib)
 library(htmltools)
 
-# Function to create HTML for a Reddit embed
-create_reddit_embed <- function(url, user, subreddit) {
-  html <- paste0('<blockquote class="reddit-embed-bq" style="height:316px" data-embed-height="597"><a href="',
-                 url, '">Link to post</a><br> by<a href="https://www.reddit.com/user/',
-                 user, '">u/', user, '</a> in<a href="https://www.reddit.com/r/', subreddit, '">',
-                 subreddit, '</a></blockquote><script async="" src="https://embed.reddit.com/widgets.js" charset="UTF-8"></script>')
-  HTML(html)
-}
-# Define UI
+
 ui <- fluidPage(
-  bslib::layout_column_wrap(
-    width = 1/3,  # Defines three columns on larger screens
-    # Dynamically generate the content
-    lapply(1:6, function(i) {
+  shiny::uiOutput(outputId = "embeddedTexts")
+)
+
+
+server <- function(input, output, session) {
+  
+  output$embeddedTexts <- shiny::renderUI({
+    embeds <- lapply(1:12, function(i) {
       create_reddit_embed("https://www.reddit.com/r/redditdev/comments/16tqlth/updating_api_user_setting_fields/",
                           paste0("pl00h", i), "redditdev")
     })
-  )
-)
+    
+    html_elements <- lapply(embeds, HTML)
+    
 
-# Define server logic
-server <- function(input, output, session) {}
+    do.call(bslib::layout_column_wrap, c(width =1/3, html_elements))
+    
+  })
+}
 
-# Run the application
 shinyApp(ui, server)
-```
-
-# Instagram
-Private accounts are a bit of a problem with the instagram API - can't render the images, so would need to check. Same may be true of Twitter.
-
-[Instagram Embed API Terms of Service](https://developers.facebook.com/terms)
-
-```{r}
-.tmp_insta <- HTML('<blockquote class="instagram-media" data-instgrm-permalink="https://www.instagram.com/p/C6z8MZetvvn/?utm_source=ig_web_copy_link/" data-instgrm-version="12" style=" background:#FFF; border:0; border-radius:3px; box-shadow:0 0 1px 0 rgba(0,0,0,0.5),0 1px 10px 0 rgba(0,0,0,0.1); margin: 1px; max-width:540px; min-width:326px; padding:0; width:99.375%; width:-webkit-calc(100% - 2px); width:calc(100% - 2px);">
-      <div style="padding:16px;">
-      </div>
-    </blockquote>
-    <script async defer src="//www.instagram.com/embed.js"></script>
-  ')
-
-bslib::layout_column_wrap(1/3, .tmp_insta, .tmp_insta, .tmp_insta)
-```
-
-```{r}
-
 ```
