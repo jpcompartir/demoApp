@@ -1,0 +1,150 @@
+---
+title: "Plotly things"
+author: "Jack Penzer"
+date: "2024-05-14"
+output: html_document
+---
+
+```{r}
+library(plotly)
+library(ggplot2)
+library(dplyr)
+library(tibble)
+```
+
+
+```{r, data_setup}
+set.seed(111)
+data <- tibble(
+  x = rnorm(500, mean = 4, sd = 1), 
+  y = rnorm(500, mean = 4.5, sd =1.2))
+
+
+k <- 5  
+clusters <- kmeans(data, centers = k)
+
+data <- data %>% 
+  mutate(cluster = factor(clusters$cluster))
+
+centroids <- as.data.frame(clusters$centers)
+```
+
+```{r}
+p <- plot_ly(data, 
+             x = ~x, y
+             = ~y, 
+             type = 'scattergl', 
+             mode = 'markers',
+             color = ~cluster, 
+             colors = "Set1")
+
+cluster_lookup <- tibble(
+  cluster = c(1, 2, 3, 4, 5),
+  label = c("Antivax", "Hoax", "Pfizer", "Covid", "Virus"),
+  centroid_x = centroids$x,
+  centroid_y = centroids$y
+)
+
+cluster_lookup
+
+for (i in 1:nrow(cluster_lookup)) {
+  p <- p %>% add_annotations(x = cluster_lookup$centroid_x[i], y = cluster_lookup$centroid_y[i],
+                             text = cluster_lookup$label[i],
+                             showarrow = FALSE, 
+                             font = list(size = 24, family = "helvetica", face = "bold"))
+}
+
+p
+```
+
+```{r, polygons_added}
+library(plotly)
+library(dplyr)
+library(alphahull)
+
+
+# Mkae plotly obj + add markers
+plot <- plot_ly() %>%
+  add_markers(data = data, x = ~x, y = ~y, color = ~cluster, name = 'Data points') %>%
+  add_markers(data = centroids, x = ~x, y = ~y, 
+              marker = list(symbol = 'x', size = 10, color = 'red'), 
+              name = 'Centroids')
+
+# Extract polygons with chull  and add to plot
+for(cluster_id in unique(data$cluster)) {
+  cluster_data <- data %>% filter(cluster == cluster_id)
+  hull <- chull(cluster_data$x, cluster_data$y)
+  hull <- c(hull, hull[1]) # To close the polygon
+  
+  plot <- plot %>%
+    add_polygons(x = cluster_data$x[hull], y = cluster_data$y[hull], 
+                 line = list(width = 1, color = 'rgba(0, 0, 0, 0.2)'), fillcolor = 'rgba(0, 0, 0, 0.1)',
+                 name = paste('Cluster', cluster_id, 'Hull'))
+}
+
+plot
+```
+
+
+```{r}
+library(plotly)
+library(dplyr)
+library(alphahull)
+
+
+plot <- plot_ly() %>%
+  add_markers(data = data, x = ~x, y = ~y, color = ~cluster, name = 'Data points') %>%
+  add_markers(data = centroids, x = ~x, y = ~y, 
+              marker = list(symbol = 'x', size = 10, color = 'red'), 
+              name = 'Centroids')
+
+
+for(cluster_id in unique(data$cluster)) {
+  cluster_data <- data %>% filter(cluster == cluster_id)
+  
+  # Doesn't work very well
+  ashape <- ashape(cluster_data$x, cluster_data$y, alpha = 1) 
+  vertices <- as.data.frame(ashape$edges)
+  
+  
+  polygon_data <- data.frame(
+    x = c(vertices$x1, vertices$x2),
+    y = c(vertices$y1, vertices$y2)
+  )
+  
+  
+  plot <- plot %>%
+    add_polygons(data = polygon_data, x = ~x, y = ~y, 
+                 line = list(width = 1, color = 'rgba(0, 0, 0, 0.2)'), fillcolor = 'rgba(0, 0, 0, 0.1)',
+                 name = paste('Cluster', cluster_id, 'Shape'))
+}
+
+plot
+
+```
+
+
+```{r}
+library(shiny)
+library(plotly)
+library(dplyr)
+library(tibble)
+
+
+get_convex_hull <- function(data) {
+  data[chull(data$x, data$y), ]
+}
+
+
+hulls <- data %>%
+  group_by(cluster) %>%
+  do(get_convex_hull(.))
+
+plot <- plot_ly(data, x = ~x, y = ~y, type = 'scattergl', mode = 'markers', color = ~cluster) %>%
+  add_trace(data = hulls, x = ~x, y = ~y, type = 'scattergl', mode = 'lines', fill = 'toself', color = ~cluster, showlegend = FALSE)
+
+plot
+
+hulls
+```
+
