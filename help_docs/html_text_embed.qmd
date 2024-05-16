@@ -259,3 +259,27 @@ server <- function(input, output, session) {
 
 shinyApp(ui, server)
 ```
+
+
+# Informal tests:
+
+```{r}
+r_pl <- "https://www.reddit.com/r/sales/comments/10x8sj9/even_gong_who_by_all_accounts_is_absolutely/j7rcv7m/"
+
+i_pl <- "https://www.instagram.com/p/CpsCY26IhDW/"
+
+t_pl <- "https://twitter.com/dilekarasoy/status/1637074142615805952"
+
+r_e <- create_reddit_embed(r_pl)
+t_e <- create_tweet_embed(t_pl)
+i_e <- create_instagram_embed(i_pl)
+
+
+bslib::layout_column_wrap(width = 1/3, i_e,r_e, r_e, i_e, t_e)
+
+bslib::layout_column_wrap(width = 1/3, t_e, t_e, t_e)
+
+
+bslib::layout_column_wrap(width = 1/3, t_e)
+```
+
